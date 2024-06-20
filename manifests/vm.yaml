@@ -1,0 +1,88 @@
+---
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: ${my_vm_name}
+  namespace: ${my_namespace}
+  labels:
+    app.kubernetes.io/name: ${my_vm_name}
+    app.kubernetes.io/part-of: vms
+    app.openshift.io/runtime: kubevirt
+spec:
+  dataVolumeTemplates:
+    - metadata:
+        creationTimestamp: null
+        name: ${my_vm_name}-disk0
+      spec:
+        sourceRef:
+          kind: DataSource
+          name: rhel8
+          namespace: openshift-virtualization-os-images
+        storage:
+          accessModes:
+            - ReadWriteMany
+          resources:
+            requests:
+              storage: 30Gi
+          storageClassName: ocs-storagecluster-ceph-rbd
+          volumeMode: Block
+  running: true
+  template:
+    metadata:
+      annotations:
+        vm.kubevirt.io/flavor: small
+        vm.kubevirt.io/os: rhel8
+        vm.kubevirt.io/workload: server
+      creationTimestamp: null
+      labels:
+        flavor.template.kubevirt.io/small: 'true'
+        kubevirt.io/domain: ${my_vm_name}
+        kubevirt.io/size: small
+        os.template.kubevirt.io/rhel8.5: 'true'
+        vm.kubevirt.io/name: ${my_vm_name}
+        workload.template.kubevirt.io/server: 'true'
+        node_type: test
+    spec:
+      domain:
+        cpu:
+          cores: 1
+          sockets: 1
+          threads: 1
+        devices:
+          disks:
+            - disk:
+                bus: virtio
+              name: cloudinitdisk
+            - bootOrder: 1
+              disk:
+                bus: virtio
+              name: rootdisk
+          interfaces:
+            - masquerade: {}
+              model: virtio
+              name: default
+          networkInterfaceMultiqueue: true
+          rng: {}
+        machine:
+          type: pc-q35-rhel8.4.0
+        resources:
+          requests:
+            memory: 2Gi
+      evictionStrategy: LiveMigrate
+      hostname: ${my_vm_name}
+      networks:
+        - name: default
+          pod: {}
+      terminationGracePeriodSeconds: 180
+      volumes:
+        - cloudInitNoCloud:
+            userData: |
+              #cloud-config
+              user: cloud-user
+              password: 'Passw0rd'
+              chpasswd:
+                expire: false
+          name: cloudinitdisk
+        - dataVolume:
+            name: ${my_vm_name}-disk0
+          name: rootdisk
